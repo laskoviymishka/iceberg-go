@@ -7,7 +7,42 @@
 
 
         <!-- Custom HTML head -->
-        
+        <!--
+          ~ Licensed to the Apache Software Foundation (ASF) under one
+          ~ or more contributor license agreements.  See the NOTICE file
+          ~ distributed with this work for additional information
+          ~ regarding copyright ownership.  The ASF licenses this file
+          ~ to you under the Apache License, Version 2.0 (the
+          ~ "License"); you may not use this file except in compliance
+          ~ with the License.  You may obtain a copy of the License at
+          ~
+          ~   http://www.apache.org/licenses/LICENSE-2.0
+          ~
+          ~ Unless required by applicable law or agreed to in writing,
+          ~ software distributed under the License is distributed on an
+          ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+          ~ KIND, either express or implied.  See the License for the
+          ~ specific language governing permissions and limitations
+          ~ under the License.
+        -->
+          <!-- Matomo -->
+          <script>
+            var _paq = window._paq = window._paq || [];
+            /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
+            _paq.push(["setDoNotTrack", true]);
+            _paq.push(["disableCookies"]);
+            _paq.push(['trackPageView']);
+            _paq.push(['enableLinkTracking']);
+            (function() {
+              var u="https://analytics.apache.org/";
+              _paq.push(['setTrackerUrl', u+'matomo.php']);
+              _paq.push(['setSiteId', '82']);
+              var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+              g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+            })();
+          </script>
+          <!-- End Matomo Code -->
+
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
@@ -224,6 +259,48 @@ docker run -p 8181:8181 apache/iceberg-rest-fixture:latest
 | taxitrips |
 └───────────┘
 
+
+</code></pre>
+<p><strong>Create Table</strong></p>
+<ul>
+<li>Notes: Only identity transform is supported at this moment</li>
+</ul>
+<pre><code># Create a simple table with REST catalog and Minio
+./iceberg create table default.table-1 
+        --properties write.format.default=parquet \
+        --partition-spec foo \
+        --sort-order foo:desc:nulls-last \
+        --schema '[{&quot;id&quot;:1,&quot;name&quot;:&quot;foo&quot;,&quot;type&quot;:&quot;string&quot;,&quot;required&quot;:false},{&quot;id&quot;:2,&quot;name&quot;:&quot;bar&quot;,&quot;type&quot;:&quot;int&quot;,&quot;required&quot;:true}]' \
+        --catalog rest \
+        --uri http://localhost:8181
+Table default.table-1 created successfully
+
+# Describe the newly created table
+./iceberg describe --catalog rest --uri http://localhost:8181 default.table-1
+Table format version | 2                                                                                               
+Metadata location    | s3://warehouse/default/table-1/metadata/00000-f0ccaadd-d988-482e-99da-3a37870288fe.metadata.json
+Table UUID           | 33fa3fac-e638-4335-a085-343c6d9e7de5                                                            
+Last updated         | 1753133512562                                                                                   
+Sort Order           | 1: [                                                                                            
+                     | 1 desc nulls-last                                                                               
+                     | ]                                                                                               
+Partition Spec       | [                                                                                               
+                     |  1000: foo: identity(1)                                                                          
+                     | ]                                                                                               
+
+Current Schema, id=0
+├──1: foo: optional string
+└──2: bar: required int
+
+Current Snapshot | 
+
+Snapshots
+
+Properties
+key                             | value  
+-----------------------------------------
+write.format.default            | parquet
+write.parquet.compression-codec | zstd   
 
 </code></pre>
 
