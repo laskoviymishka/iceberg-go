@@ -18,6 +18,7 @@
 package table
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -131,6 +132,21 @@ type CompactionPlan struct {
 	// EstOutputBytes is the estimated total size of output files.
 	// Conservative: assumes same size as input (actual may be smaller after delete application).
 	EstOutputBytes int64
+}
+
+// AnalyzeCompaction scans the table and produces a CompactionPlan without
+// modifying anything. This is the dry-run / planning entry point.
+func AnalyzeCompaction(ctx context.Context, tbl *Table, cfg CompactionConfig) (*CompactionPlan, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid compaction config: %w", err)
+	}
+
+	tasks, err := tbl.Scan().PlanFiles(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to plan files: %w", err)
+	}
+
+	return cfg.Plan(tasks)
 }
 
 // Plan analyzes the given scan tasks and produces a CompactionPlan.
