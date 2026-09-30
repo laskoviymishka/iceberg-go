@@ -287,6 +287,61 @@ func readSnapshotManifestSet(
 	return newSnapshotManifestSet(manifests), nil
 }
 
+// ManifestProvider reads snapshots' manifest lists through a table's shared,
+// bounded manifest-list cache. It resolves the table FileIO once and reuses it
+// across every read on the provider, so iterating many snapshots (for example
+// the all_* metadata tables) resolves the storage backend only once. Obtain one
+// with [Table.ManifestProvider].
+//
+// The zero value is not usable; callers outside this package use
+// Table.ManifestProvider. Reads honor the caller's context, and a table with no
+// configured FileIO returns an error from every method.
+type ManifestProvider struct {
+	cache *snapshotManifestCache
+	fsF   FSysF
+}
+
+// ManifestProvider returns a provider that reads this table's manifest lists
+// through its shared manifest cache, resolving the table FileIO once and reusing
+// it for every read on the returned provider.
+func (t Table) ManifestProvider() ManifestProvider {
+	return ManifestProvider{cache: t.manifestCache, fsF: sharedSnapshotManifestFSF(t.fsF)}
+}
+
+// FS returns the table FileIO, resolved once and shared with this provider's
+// manifest reads. Use it to read the entries of the manifests returned by
+// Manifests / DataManifests.
+func (p ManifestProvider) FS(ctx context.Context) (iceio.IO, error) {
+	return p.fsF(ctx)
+}
+
+// Manifests returns every manifest file in the snapshot's manifest list.
+func (p ManifestProvider) Manifests(ctx context.Context, snapshot Snapshot) ([]iceberg.ManifestFile, error) {
+	set, err := p.set(ctx, snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	return set.allManifests(), nil
+}
+
+// DataManifests returns only the data manifest files in the snapshot's manifest
+// list, filtering out delete manifests.
+func (p ManifestProvider) DataManifests(ctx context.Context, snapshot Snapshot) ([]iceberg.ManifestFile, error) {
+	set, err := p.set(ctx, snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	return set.dataManifests(), nil
+}
+
+func (p ManifestProvider) set(ctx context.Context, snapshot Snapshot) (snapshotManifestSet, error) {
+	return p.cache.get(ctx, snapshot, func(loadCtx context.Context) (snapshotManifestSet, error) {
+		return readSnapshotManifestSet(loadCtx, snapshot, p.fsF)
+	})
+}
+
 func sharedSnapshotManifestFSF(fsF FSysF) FSysF {
 	var (
 		once sync.Once

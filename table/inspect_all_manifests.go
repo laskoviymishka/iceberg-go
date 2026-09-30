@@ -18,7 +18,6 @@ package table
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -37,20 +36,12 @@ func (i InspectTable) AllManifests(ctx context.Context) (array.RecordReader, err
 		return nil, fmt.Errorf("inspect all manifests: build arrow schema: %w", err)
 	}
 
-	snapshots := i.tbl.metadata.Snapshots()
+	snapshots := i.tbl.Metadata().Snapshots()
 	var readSnapshotManifests func(Snapshot) ([]iceberg.ManifestFile, error)
 	if len(snapshots) > 0 {
-		if i.tbl.fsF == nil {
-			return nil, errors.New("inspect all manifests: table file IO is not configured")
-		}
-		manifestFS := sharedSnapshotManifestFSF(i.tbl.fsF)
+		provider := i.tbl.ManifestProvider()
 		readSnapshotManifests = func(snapshot Snapshot) ([]iceberg.ManifestFile, error) {
-			manifestSet, err := i.tbl.manifestSetWithFSF(ctx, snapshot, manifestFS)
-			if err != nil {
-				return nil, err
-			}
-
-			return manifestSet.allManifests(), nil
+			return provider.Manifests(ctx, snapshot)
 		}
 	}
 
