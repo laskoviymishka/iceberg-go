@@ -24,43 +24,7 @@ import "github.com/twmb/avro"
 // package: the two files are the only place where the on-disk shape of
 // collation-aware bounds is defined.
 //
-// PROVISIONAL LAYOUT (pending the Iceberg format decision): a standalone,
-// multi-version data_file.collation_stats map
-//
-//	map<field id, record{bounds: array<{collation, version, lower_bound, upper_bound}>}>
-//
-// This keeps the prototype functional while the spec settles between the inline
-// content_stats layout and the derived-field layout; it is NOT a proposal.
-//
-// PROTOTYPE field IDs: 9000+ is a deliberately high, experimental range so the
-// prototype does not collide with spec-reserved data_file field IDs (146 and up
-// are reserved for the V4 content_stats struct, and the spec reserves field IDs
-// globally across versions).
-func collationStatsFields() []avro.SchemaField {
-	entry := avro.SchemaNode{
-		Type: "record",
-		Name: "collation_bound_entry",
-		Fields: []avro.SchemaField{
-			fieldNode("collation", StringNode, 9005),
-			fieldNode("version", StringNode, 9006),
-			fieldNode("lower_bound", BytesNode, 9007),
-			fieldNode("upper_bound", BytesNode, 9008),
-		},
-	}
-	value := avro.SchemaNode{
-		Type: "record",
-		Name: "collation_column_stats",
-		Fields: []avro.SchemaField{
-			fieldNode("bounds",
-				avro.SchemaNode{Type: "array", Items: &entry, Props: map[string]any{"element-id": 9004}},
-				9003),
-		},
-	}
-
-	return []avro.SchemaField{
-		fieldNode("collation_stats",
-			NullableNode(newMapNode("k9001_v9002", IntNode, value, 9001, 9002)),
-			9000, withDefault(nil),
-			withDoc("map of column id to multi-version collation-aware bounds (provisional layout)")),
-	}
-}
+// DERIVED LAYOUT: collation bounds are stored in the existing lower_bounds and
+// upper_bounds maps under synthetic derived field IDs, so data_file gains no
+// fields at all.
+func collationStatsFields() []avro.SchemaField { return nil }
